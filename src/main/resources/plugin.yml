@@ -1,0 +1,58 @@
+name: AAC5
+version: 5.2.0
+api-version: 1.13
+load: STARTUP
+main: me.konsolas.aac.AAC
+author: konsolas
+description: Powerful anti-cheat solution for Spigot servers.
+website: https://www.spigotmc.org/resources/6442/
+depend: [ProtocolLib]
+softdepend: [ViaVersion, ProtocolSupport, PlaceholderAPI]
+commands:
+  aac:
+    description: AAC base command
+    usage: /<command> help
+permissions:
+  aac.*:
+    description: Gives access to all of AAC's permissions
+    children:
+      aac.bypass: true
+      aac.status: true
+      aac.exempt: true
+      aac.spectate: true
+      aac.sudo: true
+      aac.reset: true
+      aac.check: true
+      aac.alerts: true
+      aac.debug: true
+      aac.reload: true
+  aac.bypass:
+    description: Bypass all of AAC's checks.
+    default: op
+  aac.status:
+    description: View information about online players
+    default: op
+  aac.exempt:
+    description: Manually disable AAC checking for certain players
+    default: op
+  aac.spectate:
+    description: Teleport to players in spectator mode
+    default: op
+  aac.sudo:
+    description: Run commands as another player
+    default: op
+  aac.reset:
+    description: Clear all information about a player from AAC's database
+    default: op
+  aac.check:
+    description: Force AAC to analyse a particular player
+    default: op
+  aac.alerts:
+    description: Receive alerts from AAC's checks
+    default: op
+  aac.debug:
+    description: Turn on debug messages for specific players
+    default: op
+  aac.reload:
+    description: Reload AAC's checks and configuration file
+    default: op

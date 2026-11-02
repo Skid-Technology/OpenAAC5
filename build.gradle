@@ -1,0 +1,124 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'eclipse'
+    id 'com.gradleup.shadow' version '8.3.8'
+}
+
+group = 'me.konsolas.aac'
+version = '5.2.0'
+
+def javaVersion = 17
+
+repositories {
+    mavenCentral()
+    maven { url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/') }
+}
+
+configurations {
+    apiGenerator
+}
+
+def generatorClasses = layout.buildDirectory.dir('api-generator/classes')
+tasks.register('compileApiGenerator', JavaCompile) {
+    source = files('gradle/GenerateCompileApis.java')
+    classpath = configurations.apiGenerator
+    destinationDirectory = generatorClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(javaVersion) }
+    options.release = javaVersion
+    options.encoding = 'UTF-8'
+}
+tasks.register('generateCompileApis', JavaExec) {
+    group = 'build setup'
+    description = 'Generates compile-only API headers from text declarations.'
+    dependsOn tasks.named('compileApiGenerator')
+    inputs.dir('gradle/api-signatures')
+    outputs.dir(layout.buildDirectory.dir('compile-apis'))
+    classpath = files(generatorClasses) + configurations.apiGenerator
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(javaVersion) }
+    mainClass = 'GenerateCompileApis'
+    maxHeapSize = '2g'
+    args file('gradle/api-signatures').absolutePath, layout.buildDirectory.dir('compile-apis').get().asFile.absolutePath
+}
+def compileApi = { String name ->
+    files(layout.buildDirectory.file("compile-apis/${name}.jar")).builtBy(tasks.named('generateCompileApis'))
+}
+tasks.register('prepareIde') {
+    group = 'ide'
+    description = 'Generates the compile-only API headers used by the IDE import.'
+    dependsOn tasks.named('generateCompileApis')
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
+    withSourcesJar()
+}
+
+dependencies {
+    apiGenerator 'org.ow2.asm:asm:9.8'
+    apiGenerator 'com.google.code.gson:gson:2.10.1'
+
+    implementation 'it.unimi.dsi:fastutil:8.5.2'
+    implementation 'org.hipparchus:hipparchus-core:1.8'
+    implementation 'org.hipparchus:hipparchus-stat:1.8'
+    implementation 'org.hipparchus:hipparchus-optim:1.8'
+    implementation 'com.google.code.findbugs:jsr305:3.0.2'
+    implementation 'org.jetbrains:annotations:20.1.0'
+    compileOnly compileApi('aac5')
+    compileOnly 'com.google.guava:guava:21.0'
+    compileOnly 'com.google.code.gson:gson:2.8.9'
+    compileOnly 'org.yaml:snakeyaml:1.27'
+    compileOnly 'commons-lang:commons-lang:2.6'
+    compileOnly 'net.md-5:bungeecord-chat:1.16-R0.4'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    if (name != 'compileApiGenerator') {
+        dependsOn tasks.named('generateCompileApis')
+    }
+    options.release = javaVersion
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters']
+    options.debug = true
+    options.debugOptions.debugLevel = 'source,lines,vars'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    filePermissions { unix('0644') }
+    dirPermissions { unix('0755') }
+}
+
+jar {
+    archiveClassifier = 'plain'
+    manifest.attributes('Implementation-Title': 'AAC', 'Implementation-Version': project.version)
+}
+
+shadowJar {
+    archiveClassifier = 'java17'
+    relocate 'it.unimi.dsi.fastutil', 'me.konsolas.aac.lib.fastutil'
+    relocate 'org.hipparchus', 'me.konsolas.aac.lib.hipparchus'
+    minimize()
+    mergeServiceFiles()
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
+    exclude 'META-INF/INDEX.LIST', 'META-INF/maven/**'
+    exclude 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt'
+    manifest.attributes('Implementation-Title': 'AAC', 'Implementation-Version': project.version)
+}
+
+assemble.dependsOn shadowJar
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
+
+eclipse {
+    classpath {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
